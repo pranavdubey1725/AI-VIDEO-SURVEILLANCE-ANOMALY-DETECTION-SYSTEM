@@ -1,0 +1,30 @@
+{
+  "checkpoint": "E:\\Pranav new laptop (kisikimummi)\\AI Video Surveillance Anomaly Detection System\\surveillance-system\\checkpoints\\best_model.pt",
+  "test_auc": 0.802953,
+  "threshold": 0.5,
+  "confusion_matrix": [
+    [
+      6877,
+      1021
+    ],
+    [
+      1741,
+      3855
+    ]
+  ],
+  "per_category_auc": {
+    "Abuse": 0.736236,
+    "Arrest": 0.734044,
+    "Arson": 0.873709,
+    "Assault": 0.883121,
+    "Burglary": 0.929795,
+    "Explosion": 0.825744,
+    "Fighting": 0.657615,
+    "RoadAccidents": 0.648075,
+    "Robbery": 0.817565,
+    "Shooting": 0.642621,
+    "Shoplifting": 0.863584,
+    "Stealing": 0.748138,
+    "Vandalism": 0.918748
+  }
+}

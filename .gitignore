@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dataset — too large for git (11.8 GB)
+data/raw/
+
+# Pre-computed ResNet50 features — large .npy files, regenerate with extract_features.py
+data/features/
+
+# Clip CSV files — 421 MB total, regenerate with build_splits.py
+data/splits/train.csv
+data/splits/val.csv
+data/splits/test.csv
+# Keep dataset_index.csv (89 KB) — useful reference
+
+# Epoch checkpoints — only ship best_model.pt
+checkpoints/epoch_*.pt
+
+# Training logs
+checkpoints/training.log
+checkpoints/training2.log
+checkpoints/training3.log
+*.log
+
+# YOLOv8 weight — auto-downloaded by ultralytics on first run
+yolov8n.pt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Temp / build
+*.egg-info/
+dist/
+build/

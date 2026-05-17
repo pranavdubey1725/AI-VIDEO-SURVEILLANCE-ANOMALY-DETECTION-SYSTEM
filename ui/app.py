@@ -294,12 +294,19 @@ status_box = st.empty()
 fake_progress = 0
 while True:
     try:
-        status_resp = requests.get(f"{API_URL}/jobs/{job_id}", timeout=5).json()
+        r = requests.get(f"{API_URL}/jobs/{job_id}", timeout=5)
+        if r.status_code == 404:
+            st.error("Job was lost — the API server may have restarted. Please upload the video again.")
+            st.stop()
+        status_resp = r.json()
     except Exception:
         time.sleep(2)
         continue
 
-    s = status_resp["status"]
+    s = status_resp.get("status")
+    if s is None:
+        time.sleep(2)
+        continue
 
     if s == "queued":
         fake_progress = min(fake_progress + 2, 10)
@@ -425,7 +432,7 @@ else:
                 )
                 if frame_resp.status_code == 200:
                     img = Image.open(io.BytesIO(frame_resp.content))
-                    st.image(img, use_container_width=True)
+                    st.image(img, width="stretch")
 
             # Grad-CAM heatmap from API
             with col2:
@@ -435,7 +442,7 @@ else:
                 )
                 if hm_resp.status_code == 200:
                     hm_img = Image.open(io.BytesIO(hm_resp.content))
-                    st.image(hm_img, use_container_width=True)
+                    st.image(hm_img, width="stretch")
                 else:
                     st.info("Heatmap not available")
 

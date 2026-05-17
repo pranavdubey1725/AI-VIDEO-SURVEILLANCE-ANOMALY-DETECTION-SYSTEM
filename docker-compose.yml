@@ -3,6 +3,10 @@
 #
 # To run without a GPU, remove the entire `deploy` block from the api service
 # and add the environment variable DEVICE=cpu.
+#
+# If the api container exits with code 137, Docker killed it for exceeding the
+# memory limit. Increase Docker Desktop memory in Settings -> Resources -> Memory.
+# 6 GB is recommended (ResNet50 + LSTM + decoded video frames in RAM).
 
 services:
 

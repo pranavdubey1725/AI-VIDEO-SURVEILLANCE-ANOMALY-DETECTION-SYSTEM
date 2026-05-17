@@ -57,3 +57,6 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+
+# Staging folder — not part of the project
+new files/

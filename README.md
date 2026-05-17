@@ -250,10 +250,14 @@ surveillance-system/
 |-- checkpoints/
 |   +-- best_model.pt            epoch 29, val AUC 0.8881
 |
-+-- outputs/
-    |-- roc_curve.png
-    |-- score_distribution.png
-    +-- evaluation_results.json
+|-- outputs/
+|   |-- roc_curve.png
+|   |-- score_distribution.png
+|   +-- evaluation_results.json
+|
+|-- Dockerfile
+|-- docker-compose.yml
++-- .dockerignore
 ```
 
 ---
@@ -309,6 +313,57 @@ included — no retraining required.
 - Adjust the anomaly threshold slider (default 0.5)
 - Click **Analyze Video**
 - View the anomaly score timeline, flagged clips, Grad-CAM heatmaps, and YOLO detections
+
+---
+
+## Running with Docker
+
+Docker runs the API and UI as two separate containers on a shared network. The UI
+container reaches the API via the Docker service name (`http://api:8000`) rather than
+localhost. This is handled automatically through an environment variable — no code
+changes are needed for local development.
+
+### Prerequisites
+
+- Docker and Docker Compose (V2)
+- For GPU acceleration: [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+
+### Build and start
+
+```bash
+docker compose up --build
+```
+
+First build takes several minutes because PyTorch (~2.5 GB) is downloaded and installed
+inside the image. Subsequent starts reuse the cached layer.
+
+Open `http://localhost:8501` in your browser.
+
+### CPU-only (no GPU)
+
+Remove the `deploy` block from the `api` service in `docker-compose.yml` and change the
+`DEVICE` environment variable to `cpu`:
+
+```yaml
+environment:
+  - DEVICE=cpu
+```
+
+CPU inference works but is significantly slower (8–12 minutes per 60-second video vs
+under 30 seconds with a GPU).
+
+### Stop
+
+```bash
+docker compose down
+```
+
+### Image size note
+
+The Docker image is large (~6–8 GB) because of the PyTorch CUDA wheels. This is
+expected for GPU-enabled deep learning containers. The `.dockerignore` file ensures the
+11.8 GB dataset, pre-computed features, and intermediate checkpoints are never copied
+into the image.
 
 ---
 

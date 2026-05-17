@@ -39,7 +39,8 @@ DROPOUT         = 0.5
 BATCH_SIZE      = 32
 LEARNING_RATE   = 1e-4
 NUM_EPOCHS      = 50
-DEVICE          = "cuda"     # switch to "cpu" if GPU not available
+import os
+DEVICE          = os.environ.get("DEVICE", "cuda")  # override with DEVICE=cpu for CPU-only
 
 # ── Inference ──────────────────────────────────────────────────────────────────
 ANOMALY_THRESHOLD = 0.5      # score above this → flagged as anomalous

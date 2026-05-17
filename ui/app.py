@@ -14,7 +14,8 @@ import pandas as pd
 from PIL import Image
 import io
 
-API_URL = "http://localhost:8000"
+import os
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(

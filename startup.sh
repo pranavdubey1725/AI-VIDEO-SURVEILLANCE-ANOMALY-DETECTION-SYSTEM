@@ -16,4 +16,6 @@ echo "Starting Streamlit on port 7860..."
 exec python -m streamlit run ui/app.py \
     --server.port 7860 \
     --server.headless true \
-    --server.address 0.0.0.0
+    --server.address 0.0.0.0 \
+    --server.enableXsrfProtection false \
+    --server.enableCORS false

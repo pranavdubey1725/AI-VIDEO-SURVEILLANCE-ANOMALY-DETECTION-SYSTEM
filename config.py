@@ -40,7 +40,9 @@ BATCH_SIZE      = 32
 LEARNING_RATE   = 1e-4
 NUM_EPOCHS      = 50
 import os
-DEVICE          = os.environ.get("DEVICE", "cuda")  # override with DEVICE=cpu for CPU-only
+import torch
+_requested = os.environ.get("DEVICE", "cuda")
+DEVICE = _requested if _requested == "cpu" or torch.cuda.is_available() else "cpu"
 
 # ── Inference ──────────────────────────────────────────────────────────────────
 ANOMALY_THRESHOLD = 0.5      # score above this → flagged as anomalous

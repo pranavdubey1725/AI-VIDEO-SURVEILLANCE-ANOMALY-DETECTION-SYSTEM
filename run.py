@@ -40,7 +40,7 @@ print()
 print("Starting FastAPI backend on http://localhost:8000 ...")
 api_proc = subprocess.Popen(
     [PYTHON, "-m", "uvicorn", "api.main:app",
-     "--host", "0.0.0.0", "--port", "8000", "--reload"],
+     "--host", "0.0.0.0", "--port", "8000"],
     cwd=ROOT,
 )
 processes.append(api_proc)

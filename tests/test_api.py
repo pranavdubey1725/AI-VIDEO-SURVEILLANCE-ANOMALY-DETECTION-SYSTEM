@@ -175,8 +175,10 @@ def test_full_job_lifecycle():
     job_id = body["job_id"]
     assert body["status"] == "queued"
 
-    # 2. Results-before-done → 400
-    assert requests.get(f"{BASE}/jobs/{job_id}/results").status_code == 400
+    # 2. Results-before-done → 400 (only if job hasn't already finished — tiny test
+    #    videos can complete before this line runs, which is fine)
+    if requests.get(f"{BASE}/jobs/{job_id}").json()["status"] != "done":
+        assert requests.get(f"{BASE}/jobs/{job_id}/results").status_code == 400
 
     # 3. Poll to completion
     status = _poll(job_id, timeout=120)

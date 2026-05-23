@@ -25,6 +25,12 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     restart: on-failure
 
   ui:
@@ -42,5 +48,6 @@ services:
       # This overrides the localhost default in ui/app.py.
       - API_URL=http://api:8000
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: on-failure

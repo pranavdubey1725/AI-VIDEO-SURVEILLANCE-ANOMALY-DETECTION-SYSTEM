@@ -1162,6 +1162,18 @@ pytest tests/test_api.py -v
 - [x] 14 automated tests — all passing (54s runtime)
 - [x] pytest installed in venv
 
+### Phase 11 — Pre-Demo Bug Fixes & Docker CPU Path
+- [x] Fix Streamlit crash (`width="stretch"` → `use_container_width=True`)
+- [x] Fix CUDA fallback in config.py (`torch.cuda.is_available()` check)
+- [x] Fix memory leak (DELETE /jobs/{id} after results are rendered)
+- [x] Fix Docker startup ordering (healthcheck + `condition: service_healthy`)
+- [x] Fix test race condition (conditional results-before-done assertion)
+- [x] Remove `--reload` from run.py
+- [x] Fix requirements.txt for CPU machines (`>=` bounds + install instructions)
+- [x] Add docker-compose.cpu.yml for GPU-free Docker path
+- [x] Delete dead code (`new files/` directory)
+- [x] All 14 tests passing (verified: `14 passed in 47.50s`)
+
 ---
 
 ## Decisions Log (Quick Reference)

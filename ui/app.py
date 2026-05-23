@@ -432,7 +432,7 @@ else:
                 )
                 if frame_resp.status_code == 200:
                     img = Image.open(io.BytesIO(frame_resp.content))
-                    st.image(img, width="stretch")
+                    st.image(img, use_container_width=True)
 
             # Grad-CAM heatmap from API
             with col2:
@@ -442,7 +442,7 @@ else:
                 )
                 if hm_resp.status_code == 200:
                     hm_img = Image.open(io.BytesIO(hm_resp.content))
-                    st.image(hm_img, width="stretch")
+                    st.image(hm_img, use_container_width=True)
                 else:
                     st.info("Heatmap not available")
 
@@ -461,6 +461,12 @@ else:
                         st.markdown(f"`{d['class_name']:<12}` {bar} `{d['confidence']:.2f}`")
                 else:
                     st.info("No objects detected by YOLO")
+
+    # Free server memory now that all clips have been rendered
+    try:
+        requests.delete(f"{API_URL}/jobs/{job_id}", timeout=5)
+    except Exception:
+        pass
 
 st.divider()
 st.caption(

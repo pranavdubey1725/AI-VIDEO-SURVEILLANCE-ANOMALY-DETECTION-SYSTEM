@@ -341,12 +341,10 @@ Open `http://localhost:8501` in your browser.
 
 ### CPU-only (no GPU)
 
-Remove the `deploy` block from the `api` service in `docker-compose.yml` and change the
-`DEVICE` environment variable to `cpu`:
+No GPU? Use the ready-made CPU variant — no edits required:
 
-```yaml
-environment:
-  - DEVICE=cpu
+```bash
+docker compose -f docker-compose.cpu.yml up --build
 ```
 
 CPU inference works but is significantly slower (8–12 minutes per 60-second video vs

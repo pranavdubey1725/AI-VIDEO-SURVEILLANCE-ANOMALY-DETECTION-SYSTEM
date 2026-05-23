@@ -26,7 +26,7 @@ import time
 
 from config import (
     DEVICE, CLIP_LENGTH, CLIP_STRIDE, ANOMALY_THRESHOLD,
-    FRAME_SIZE, CHECKPOINTS_DIR
+    FRAME_SIZE, CHECKPOINTS_DIR, FRAME_INTERVAL
 )
 from src.models.feature_extractor import get_extractor
 from src.models.lstm_model import get_model
@@ -108,7 +108,12 @@ class SurveillancePipeline:
         print("Pipeline ready.\n")
 
     def _extract_frames(self, video_path: str):
-        """Read all frames from video, return list of PIL Images + fps."""
+        """Read frames from video, sampling every FRAME_INTERVAL frames.
+
+        Matches the training-time sampling rate so features are in-distribution.
+        Without sampling, a 40s/30fps video = 1200 frames → minutes on CPU.
+        With FRAME_INTERVAL=10, same video = 120 frames → seconds.
+        """
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Cannot open video: {video_path}")
@@ -116,17 +121,21 @@ class SurveillancePipeline:
         fps          = cap.get(cv2.CAP_PROP_FPS) or 30.0
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        frames = []
+        frames  = []
+        idx     = 0
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-            # OpenCV reads BGR — convert to RGB for PIL / ResNet50
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(Image.fromarray(rgb))
+            if idx % FRAME_INTERVAL == 0:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames.append(Image.fromarray(rgb))
+            idx += 1
 
         cap.release()
-        return frames, fps, total_frames
+        # Report effective fps after sampling so timestamps stay correct
+        effective_fps = fps / FRAME_INTERVAL
+        return frames, effective_fps, total_frames
 
     def _frames_to_features(self, frames: List[Image.Image]) -> np.ndarray:
         """Run all frames through ResNet50 in batches. Returns [N, 2048]."""

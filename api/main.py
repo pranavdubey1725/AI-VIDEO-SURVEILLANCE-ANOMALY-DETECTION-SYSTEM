@@ -139,7 +139,10 @@ def run_analysis(job_id: str, video_path: str, threshold: float):
             if r.is_anomalous:
                 anomalous.append(r)
 
-        for result in anomalous:
+        # Run YOLO + Grad-CAM only on top 5 clips by score — each Grad-CAM
+        # backward pass takes ~2-5s on CPU; running it on all clips is too slow.
+        top_anomalous = sorted(anomalous, key=lambda r: r.anomaly_score, reverse=True)[:5]
+        for result in top_anomalous:
             mid   = min((result.start_frame + result.end_frame) // 2, len(frames) - 1)
             frame = frames[mid]
             result.detections    = pipeline.detector.detect(frame)

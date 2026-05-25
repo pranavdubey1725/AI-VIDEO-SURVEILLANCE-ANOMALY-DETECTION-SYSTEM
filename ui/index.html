@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel · AI Surveillance Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+    <div class="nav-brand">
+        <div class="nav-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+        </div>
+        <span class="nav-name">Sentinel</span>
+        <span class="nav-divider"></span>
+        <span class="nav-sub">AI Surveillance Analysis</span>
+    </div>
+    <div class="nav-status" id="navStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">Connecting...</span>
+    </div>
+</nav>
+
+<main>
+
+    <!-- Upload Section -->
+    <section class="upload-section" id="uploadSection">
+        <div class="hero">
+            <div class="hero-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                ResNet50 + LSTM · UCF-Crime · AUC 0.8030
+            </div>
+            <h1>Detect Anomalies in<br>Surveillance Footage</h1>
+            <p>Upload a video clip and get timestamped anomaly scores, YOLO object detections, and Grad-CAM explainability heatmaps — powered by deep learning.</p>
+        </div>
+
+        <div class="upload-card">
+            <div class="upload-zone" id="uploadZone">
+                <input type="file" id="fileInput" accept=".mp4,.avi,.mov,.mkv" hidden>
+                <div class="upload-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <polyline points="16 16 12 12 8 16"/>
+                        <line x1="12" y1="12" x2="12" y2="21"/>
+                        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                    </svg>
+                </div>
+                <p class="upload-label">Drop your video here</p>
+                <p class="upload-sub">or <span class="upload-link">browse files</span></p>
+                <p class="upload-types">MP4 · AVI · MOV · MKV · up to 200 MB</p>
+            </div>
+
+            <div class="file-info" id="fileInfo">
+                <div class="file-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="23 7 16 1 1 1 1 23 23 23 23 7"/>
+                        <polyline points="16 1 16 8 23 8"/>
+                    </svg>
+                </div>
+                <div class="file-details">
+                    <span class="file-name" id="fileName"></span>
+                    <span class="file-size" id="fileSize"></span>
+                </div>
+                <button class="file-remove" id="fileRemove" aria-label="Remove file">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="threshold-row">
+                <div class="threshold-label">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+                        <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+                        <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/>
+                        <line x1="17" y1="16" x2="23" y2="16"/>
+                    </svg>
+                    <span>Sensitivity Threshold</span>
+                </div>
+                <div class="threshold-control">
+                    <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.5">
+                    <span class="threshold-value" id="thresholdValue">0.50</span>
+                </div>
+            </div>
+
+            <button class="analyze-btn" id="analyzeBtn" disabled>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Analyze Video
+            </button>
+
+            <div class="error-box" id="errorBox">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span id="errorText"></span>
+            </div>
+        </div>
+
+        <div class="model-pill-row">
+            <span class="model-pill">ResNet50</span>
+            <span class="model-pill">AnomalyLSTM</span>
+            <span class="model-pill">YOLOv8n</span>
+            <span class="model-pill">Grad-CAM</span>
+            <span class="model-pill">FastAPI</span>
+        </div>
+    </section>
+
+    <!-- Processing Section -->
+    <section class="processing-section" id="processingSection">
+        <div class="processing-card">
+            <div class="spinner-wrap">
+                <div class="spinner"></div>
+            </div>
+            <div class="processing-info">
+                <p class="processing-label" id="processingLabel">Submitting job...</p>
+                <p class="processing-job" id="processingJob"></p>
+            </div>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="processing-hint">Running ResNet50 → LSTM → YOLOv8 → Grad-CAM on CPU · 1–3 min for short clips</p>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section" id="resultsSection">
+
+        <div class="results-header">
+            <div>
+                <h2 class="results-title" id="resultsTitle"></h2>
+                <p class="results-sub" id="resultsSub"></p>
+            </div>
+            <button class="new-btn" id="newAnalysisBtn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="1 4 1 10 7 10"/>
+                    <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+                </svg>
+                New Analysis
+            </button>
+        </div>
+
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="chart-card">
+            <div class="chart-top">
+                <span class="section-label">Anomaly Score Timeline</span>
+                <div class="chart-legend">
+                    <span class="leg-dot" style="background:var(--accent)"></span><span>Score</span>
+                    <span class="leg-dot" style="background:var(--danger);margin-left:14px"></span><span>Flagged</span>
+                    <span class="leg-dot" style="background:rgba(239,68,68,0.35);margin-left:14px;border-radius:2px;width:14px;height:3px"></span><span>Threshold</span>
+                </div>
+            </div>
+            <div class="chart-wrap"><canvas id="timelineChart"></canvas></div>
+        </div>
+
+        <div id="flaggedSection"></div>
+
+    </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

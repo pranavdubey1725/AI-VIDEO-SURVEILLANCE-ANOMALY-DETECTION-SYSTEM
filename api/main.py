@@ -373,3 +373,10 @@ def delete_job(job_id: str):
         raise HTTPException(404, "Job not found")
     del jobs[job_id]
     return {"deleted": job_id}
+
+
+# ── Static UI (must be last — catches all unmatched routes) ───────────────────
+from fastapi.staticfiles import StaticFiles
+_ui_dir = Path(__file__).parent.parent / "ui"
+if _ui_dir.exists():
+    app.mount("/", StaticFiles(directory=str(_ui_dir), html=True), name="static")

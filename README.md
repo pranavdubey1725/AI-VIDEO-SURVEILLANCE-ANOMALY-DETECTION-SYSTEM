@@ -60,9 +60,10 @@ Input Video (.mp4 / .avi / .mov / .mkv)
         +----------------+-------------+
                          v
              [FastAPI Backend]  :8000
+              (serves UI + API)
                          |
                          v
-             [Streamlit Frontend]  :8501
+        [Vanilla JS Frontend — browser]
 ```
 
 ---
@@ -150,11 +151,12 @@ Jobs are stored in a plain Python dict (in-memory). If the server restarts, all 
 are lost. This is acceptable for a local development system; a production deployment
 would use Redis or a database.
 
-### Frontend — Streamlit
+### Frontend — Vanilla HTML/CSS/JS
 
-The Streamlit UI only talks to the FastAPI backend. It never touches the ML models
-directly. This decoupling means the API can serve any client (mobile, CLI, another
-service) without changing the ML code.
+The frontend is a single-page application served as static files by FastAPI itself
+(via `StaticFiles` mount). It communicates with the backend only through the REST API
+— it never touches ML models directly. This decoupling means the API can serve any
+client (mobile, CLI, another service) without changing the ML code.
 
 ---
 
@@ -219,7 +221,9 @@ surveillance-system/
 |   +-- main.py                  FastAPI backend — async job queue, 7 endpoints
 |
 |-- ui/
-|   +-- app.py                   Streamlit frontend — polls API, renders results
+|   |-- index.html               Web UI — upload, progress, results dashboard
+|   |-- style.css                Dark minimal theme (Inter + JetBrains Mono)
+|   +-- app.js                   Vanilla JS — polling, Chart.js chart, clip cards
 |
 |-- src/
 |   |-- dataset/
@@ -297,15 +301,15 @@ pip install torch torchvision torchaudio
 
 Then open `config.py` and change `DEVICE = "cuda"` to `DEVICE = "cpu"`.
 
-### 2. Start both servers
+### 2. Start the server
 
 ```bash
 python run.py
 ```
 
-This launches the FastAPI backend on port 8000 and the Streamlit UI on port 8501.
-Open `http://localhost:8501` in your browser. The `best_model.pt` checkpoint is
-included — no retraining required.
+This launches FastAPI on port 8000. FastAPI serves both the REST API and the
+web UI from the same process. Open `http://localhost:8000` in your browser.
+The `best_model.pt` checkpoint is included — no retraining required.
 
 ### 3. Analyze a video
 
@@ -337,7 +341,7 @@ docker compose up --build
 First build takes several minutes because PyTorch (~2.5 GB) is downloaded and installed
 inside the image. Subsequent starts reuse the cached layer.
 
-Open `http://localhost:8501` in your browser.
+Open `http://localhost:8000` in your browser.
 
 ### CPU-only (no GPU)
 
@@ -450,7 +454,7 @@ python src/training/evaluate.py
 | YOLO placement | Only on flagged clips | Running YOLO on every frame is slow and redundant when LSTM already flags anomalies |
 | Grad-CAM target | L2 norm of feature map | No classification logit available; norm captures which spatial regions activate most |
 | API pattern | Async job queue | Analysis takes 20–120 seconds; synchronous endpoints would time out |
-| Frontend coupling | Streamlit calls API only | Keeps UI completely decoupled from ML; any client can use the API |
+| Frontend coupling | Vanilla JS calls API only | Keeps UI completely decoupled from ML; any client can use the API |
 
 ---
 

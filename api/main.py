@@ -22,10 +22,17 @@ import asyncio
 import tempfile
 import os
 import io
+import time
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 from enum import Enum
 from dataclasses import asdict
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
+logger = logging.getLogger(__name__)
+
+JOB_TTL_SECONDS = 1800  # auto-expire jobs after 30 minutes
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -63,9 +70,23 @@ pipeline: Optional[SurveillancePipeline] = None
 @app.on_event("startup")
 async def load_pipeline():
     global pipeline
-    print("Loading SurveillancePipeline...")
+    logger.info("Loading SurveillancePipeline...")
     pipeline = SurveillancePipeline()
-    print("Pipeline ready.")
+    logger.info("Pipeline ready.")
+    asyncio.create_task(_evict_expired_jobs())
+
+
+async def _evict_expired_jobs():
+    """Background loop: delete jobs older than JOB_TTL_SECONDS every 5 minutes."""
+    while True:
+        await asyncio.sleep(300)
+        cutoff = time.time() - JOB_TTL_SECONDS
+        expired = [jid for jid, j in list(jobs.items()) if j["created_at"] < cutoff]
+        for jid in expired:
+            jobs.pop(jid, None)
+            logger.info("Evicted expired job %s", jid)
+        if expired:
+            logger.info("Evicted %d expired job(s)", len(expired))
 
 
 # ── Job store (in-memory) ─────────────────────────────────────────────────────
@@ -170,7 +191,7 @@ def run_analysis(job_id: str, video_path: str, threshold: float):
     except Exception as e:
         jobs[job_id]["status"] = JobStatus.FAILED
         jobs[job_id]["error"]  = _classify_pipeline_error(e)
-        raise
+        logger.exception("Job %s failed: %s", job_id, e)
     finally:
         # Clean up temp file
         if os.path.exists(video_path):
@@ -270,13 +291,15 @@ async def analyze(
 
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
-        "status":    JobStatus.QUEUED,
-        "error":     None,
-        "result":    None,
-        "frames":    None,
-        "filename":  file.filename,
-        "threshold": threshold,
+        "status":     JobStatus.QUEUED,
+        "error":      None,
+        "result":     None,
+        "frames":     None,
+        "filename":   file.filename,
+        "threshold":  threshold,
+        "created_at": time.time(),
     }
+    logger.info("Job %s queued — file=%s threshold=%.2f", job_id, file.filename, threshold)
 
     background_tasks.add_task(run_analysis, job_id, tmp.name, threshold)
 

@@ -59,9 +59,9 @@ function setStatus(state, text) {
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 function showSection(name) {
-    uploadSection.style.display     = name === "upload"     ? "" : "none";
-    processingSection.style.display = name === "processing" ? "" : "none";
-    resultsSection.style.display    = name === "results"    ? "" : "none";
+    uploadSection.style.display     = name === "upload"     ? ""     : "none";
+    processingSection.style.display = name === "processing" ? "flex" : "none";
+    resultsSection.style.display    = name === "results"    ? "flex" : "none";
 }
 
 // ── File handling ─────────────────────────────────────────────────────────────
@@ -491,11 +491,13 @@ newAnalysisBtn.addEventListener("click", async () => {
 });
 
 // ── Cleanup on unload ─────────────────────────────────────────────────────────
+// sendBeacon only supports POST — use fetch with keepalive:true which supports
+// DELETE and is guaranteed to complete even after the page starts unloading.
 window.addEventListener("beforeunload", () => {
     clearInterval(pollTimer);
     clearInterval(progressTimer);
     if (currentJobId) {
-        navigator.sendBeacon(`${API}/jobs/${currentJobId}`, null);
+        fetch(`${API}/jobs/${currentJobId}`, { method: "DELETE", keepalive: true }).catch(() => {});
     }
 });
 

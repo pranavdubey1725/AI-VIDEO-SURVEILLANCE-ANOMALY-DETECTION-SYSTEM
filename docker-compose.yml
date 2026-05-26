@@ -1,12 +1,15 @@
 # GPU passthrough requires the NVIDIA Container Toolkit:
 #   https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 #
-# To run without a GPU, remove the entire `deploy` block from the api service
-# and add the environment variable DEVICE=cpu.
+# To run without a GPU use the CPU variant instead:
+#   docker compose -f docker-compose.cpu.yml up --build
 #
-# If the api container exits with code 137, Docker killed it for exceeding the
+# If the container exits with code 137, Docker killed it for exceeding the
 # memory limit. Increase Docker Desktop memory in Settings -> Resources -> Memory.
 # 6 GB is recommended (ResNet50 + LSTM + decoded video frames in RAM).
+#
+# The UI is served by FastAPI itself at http://localhost:8000
+# There is no separate UI container.
 
 services:
 
@@ -31,23 +34,4 @@ services:
       timeout: 3s
       retries: 10
       start_period: 30s
-    restart: on-failure
-
-  ui:
-    build: .
-    container_name: surveillance-ui
-    ports:
-      - "8501:8501"
-    command: >
-      python -m streamlit run ui/app.py
-      --server.port 8501
-      --server.headless true
-      --server.address 0.0.0.0
-    environment:
-      # Inside the Docker network the API is reachable via the service name.
-      # This overrides the localhost default in ui/app.py.
-      - API_URL=http://api:8000
-    depends_on:
-      api:
-        condition: service_healthy
     restart: on-failure

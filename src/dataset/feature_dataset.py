@@ -27,9 +27,13 @@ class FeatureDataset(Dataset):
     """
 
     def __init__(self, split: str):
+        # "train_aug" loads train_aug.csv; anything else loads {split}.csv
         csv_path = SPLITS_DIR / f"{split}.csv"
         if not csv_path.exists():
             raise FileNotFoundError(f"Split CSV not found: {csv_path}")
+        # FeatureDataset resolves feature paths using the split column in the CSV,
+        # which is always "train" even for augmented rows — so path resolution
+        # works correctly without any other changes.
 
         self.df    = pd.read_csv(csv_path)
         self.split = split

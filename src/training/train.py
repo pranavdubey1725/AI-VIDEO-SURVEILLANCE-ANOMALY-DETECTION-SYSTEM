@@ -91,20 +91,21 @@ def evaluate(model, loader, loss_fn, device):
     return avg_loss, auc
 
 
-def train(resume_from: Path = None):
+def train(resume_from: Path = None, train_split: str = "train", num_epochs: int = NUM_EPOCHS):
     print("=" * 60)
     print("TRAINING AnomalyLSTM")
     print("=" * 60)
     print(f"Device     : {DEVICE}")
-    print(f"Epochs     : {NUM_EPOCHS}")
+    print(f"Epochs     : {num_epochs}")
     print(f"Batch size : {BATCH_SIZE}")
     print(f"LR         : {LEARNING_RATE}")
+    print(f"Train split: {train_split}")
     print()
 
     # ── Data ──────────────────────────────────────────────────────
     print("Loading datasets...")
-    train_loader = get_feature_dataloader("train", batch_size=BATCH_SIZE)
-    val_loader   = get_feature_dataloader("val",   batch_size=BATCH_SIZE)
+    train_loader = get_feature_dataloader(train_split, batch_size=BATCH_SIZE)
+    val_loader   = get_feature_dataloader("val",       batch_size=BATCH_SIZE)
     print(f"Train batches : {len(train_loader):,}")
     print(f"Val   batches : {len(val_loader):,}")
     print()
@@ -122,6 +123,9 @@ def train(resume_from: Path = None):
     best_auc    = 0.0
     history     = []
     start_epoch = 1
+    # Use a separate checkpoint name when training on augmented data
+    # so the original best_model.pt is never overwritten
+    best_ckpt_name = "best_model_aug.pt" if train_split != "train" else "best_model.pt"
 
     # ── Resume from checkpoint if provided ────────────────────────
     if resume_from and resume_from.exists():
@@ -139,9 +143,10 @@ def train(resume_from: Path = None):
             with open(history_path) as f:
                 history = json.load(f)
 
-    print("Starting training...\n")
+    end_epoch = start_epoch + num_epochs - 1
+    print(f"Starting training... (epochs {start_epoch} to {end_epoch})\n")
 
-    for epoch in range(start_epoch, NUM_EPOCHS + 1):
+    for epoch in range(start_epoch, end_epoch + 1):
         t0 = time.time()
 
         train_loss           = train_one_epoch(model, train_loader, optimizer, loss_fn, DEVICE)
@@ -153,7 +158,7 @@ def train(resume_from: Path = None):
         current_lr = optimizer.param_groups[0]["lr"]
 
         print(
-            f"Epoch {epoch:02d}/{NUM_EPOCHS} | "
+            f"Epoch {epoch:02d}/{end_epoch} | "
             f"Train Loss: {train_loss:.4f} | "
             f"Val Loss: {val_loss:.4f} | "
             f"Val AUC: {val_auc:.4f} | "
@@ -173,7 +178,7 @@ def train(resume_from: Path = None):
         # Save best checkpoint — track by AUC (val_loss saturates at 0)
         if val_auc > best_auc:
             best_auc  = val_auc
-            ckpt_path = CHECKPOINTS_DIR / "best_model.pt"
+            ckpt_path = CHECKPOINTS_DIR / best_ckpt_name
             torch.save({
                 "epoch":       epoch,
                 "model_state": model.state_dict(),
@@ -201,7 +206,7 @@ def train(resume_from: Path = None):
     print("\n" + "=" * 60)
     print(f"Training complete.")
     print(f"Best AUC-ROC  : {best_auc:.4f}")
-    print(f"Checkpoint    : {CHECKPOINTS_DIR / 'best_model.pt'}")
+    print(f"Checkpoint    : {CHECKPOINTS_DIR / best_ckpt_name}")
     print(f"History       : {history_path}")
     print("=" * 60)
 
@@ -211,7 +216,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to checkpoint to resume from")
+    parser.add_argument("--split", type=str, default="train",
+                        help="Train split name: 'train' (original) or 'train_aug' (augmented)")
+    parser.add_argument("--epochs", type=int, default=NUM_EPOCHS,
+                        help="Number of epochs to train (overrides config)")
     args = parser.parse_args()
 
     resume_path = Path(args.resume) if args.resume else None
-    train(resume_from=resume_path)
+    train(resume_from=resume_path, train_split=args.split, num_epochs=args.epochs)

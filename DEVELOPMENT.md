@@ -13,7 +13,7 @@
 | Purpose | Resume/portfolio project demonstrating end-to-end ML engineering |
 | Developer | Pranav (VIT Bhopal) |
 | Started | May 2026 |
-| Stack | PyTorch, YOLOv8, OpenCV, FastAPI, Streamlit |
+| Stack | PyTorch, YOLOv8, OpenCV, FastAPI, Vanilla JS |
 | Dataset | UCF-Crime (Kaggle: odins0n/ucf-crime-dataset) |
 
 ---
@@ -1243,3 +1243,95 @@ pytest tests/test_api.py -v
 - "The primary metric is AUC-ROC, not accuracy. With 76% normal clips, a model predicting 'normal' for everything gets 76% accuracy — that's useless. AUC-ROC measures how well the model separates the two classes regardless of any threshold."
 - "The standard benchmark metric for UCF-Crime is frame-level AUC-ROC on the test set."
 - "Grad-CAM shows which region of the frame the model was paying attention to — this makes the system explainable, not just a black box."
+
+---
+
+## Phase 12 — Vanilla JS Frontend, Production QA Audit & 6 Critical Bug Fixes
+
+**Date:** May 2026
+
+### What Changed
+
+The Streamlit frontend was replaced entirely with a static vanilla HTML/CSS/JS app served by FastAPI itself. An 8-phase engineering audit identified 6 critical bugs, all fixed, with 48 automated tests written to verify each fix.
+
+### Stack Change
+
+| Before | After |
+|---|---|
+| FastAPI (API) + Streamlit (UI) | FastAPI serving both API and static UI |
+| Two processes (`run.py` spawned both) | Single process |
+| Two ports (:8000 API, :8501 UI) | Single port (:8000) |
+| `streamlit==1.50.0` in requirements | Removed — no pip package needed |
+| Two Docker services | One Docker service |
+
+### New Frontend Files
+
+| File | Purpose |
+|---|---|
+| `ui/index.html` | Single-page shell, Chart.js CDN, semantic sections |
+| `ui/style.css` | Dark surveillance theme, CSS variables, responsive |
+| `ui/app.js` | Drag-drop upload, job polling, Chart.js timeline, clip accordion, cleanup |
+
+### Key Design Decisions
+
+**Why not React/Vue?**
+No build step, no node_modules, no bundler. The UI is a single-page client talking to one API. Vanilla JS is sufficient and keeps the repository clean.
+
+**Why `const API = ""`?**
+Relative URL prefix means the frontend works on localhost:8000, Docker :8000, and HuggingFace Spaces :7860 without any configuration change.
+
+**Why StaticFiles mount last?**
+FastAPI route matching is first-match. The StaticFiles mount must be registered after all API routes so `/health`, `/analyze`, `/jobs/{id}` etc. are matched by their actual handlers — not intercepted by the file server.
+
+### Bug Fixes
+
+**Fix 1 — showSection() invisible sections**
+CSS `display:none` + JS `element.style.display = ""` = section stays hidden forever. CSS stylesheet rule wins when inline style is cleared. Fix: set explicit `"flex"`.
+
+**Fix 2a — sendBeacon DELETE**
+`navigator.sendBeacon()` only sends POST. Cleanup calls to `DELETE /jobs/{id}` always got 405. Fix: `fetch(..., { method: "DELETE", keepalive: true })`.
+
+**Fix 2b — infinite memory growth**
+Jobs accumulated in-memory dict with no eviction. Added `JOB_TTL_SECONDS = 1800`, `_evict_expired_jobs()` async background task, `created_at` timestamp on every job, and `logging.basicConfig`.
+
+**Fix 3 — dead Docker container**
+`docker-compose.yml` had a `ui:` service pointing at a deleted file (`ui/app.py`). Would crash-loop on `docker compose up`. Removed entire `ui:` service.
+
+**Fix 4 — wrong README**
+README still described Streamlit architecture (`:8501`, `[Streamlit Frontend]`, `ui/app.py`). Updated to reflect vanilla JS frontend.
+
+**Fix 5 — dead dependency**
+`streamlit==1.50.0` in requirements.txt installed ~40 packages for a UI that did not exist. Removed.
+
+**Fix 6 — log files not ignored**
+`api/api.log` not in `.gitignore`. Added `*.log` pattern.
+
+### Test Coverage Added
+
+```
+tests/
+  test_api.py              14 tests  — core endpoint lifecycle
+  test_fixes_static.py     33 tests  — source-code audit, no server needed
+  test_fixes_runtime.py    15 tests  — live API + TTL logic
+  README.md                — documents how to run all test groups
+```
+
+All 33 static tests pass without a running server. Static tests use `re.search` with `\s*` to tolerate alignment whitespace in source code.
+
+### Phase 12 Checklist
+
+- [x] Streamlit removed from requirements.txt
+- [x] ui/index.html, ui/style.css, ui/app.js created
+- [x] FastAPI StaticFiles mount (last route)
+- [x] run.py simplified, startup.sh updated
+- [x] Fix 1: showSection "flex" fix
+- [x] Fix 2a: sendBeacon → keepalive fetch
+- [x] Fix 2b: TTL eviction + logging + created_at
+- [x] Fix 3: docker-compose Streamlit service removed
+- [x] Fix 4: README updated
+- [x] Fix 5: requirements.txt cleaned
+- [x] Fix 6: *.log in .gitignore
+- [x] 48 tests written, all passing
+- [x] Committed and pushed to GitHub
+
+---

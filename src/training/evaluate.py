@@ -188,7 +188,8 @@ def evaluate(checkpoint_path: Path = None):
         "confusion_matrix": cm.tolist(),
         "per_category_auc": {k: round(float(v), 6) for k, v in cat_aucs.items()},
     }
-    out_path = OUTPUTS_DIR / "evaluation_results.json"
+    stem     = checkpoint_path.stem   # e.g. "best_model" or "best_model_aug"
+    out_path = OUTPUTS_DIR / f"evaluation_results_{stem}.json"
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved -> {out_path}")
@@ -198,4 +199,10 @@ def evaluate(checkpoint_path: Path = None):
 
 
 if __name__ == "__main__":
-    evaluate()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint", type=str, default=None,
+                        help="Path to checkpoint file (default: checkpoints/best_model.pt)")
+    args = parser.parse_args()
+    ckpt_path = Path(args.checkpoint) if args.checkpoint else None
+    evaluate(checkpoint_path=ckpt_path)

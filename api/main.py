@@ -46,7 +46,7 @@ from config import ANOMALY_THRESHOLD, CHECKPOINTS_DIR
 from src.inference.pipeline import SurveillancePipeline, ClipResult, VideoResult
 
 ALLOWED_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
-MAX_FILE_SIZE_MB   = 500
+MAX_FILE_SIZE_MB   = 200   # HuggingFace Spaces free tier caps at ~200 MB
 
 
 # ── App setup ─────────────────────────────────────────────────────────────────

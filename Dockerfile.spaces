@@ -1,31 +1,29 @@
 FROM python:3.11-slim
 
-# OpenCV + curl (curl is used by startup.sh to health-check FastAPI)
+# OpenCV runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
         libglib2.0-0 \
-        curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # requirements.txt uses torch>=2.5.0 (no CUDA pin).
-# On PyPI that resolves to the CPU wheel (~230 MB vs ~2.5 GB for CUDA).
+# On PyPI that resolves to the CPU-only wheel (~230 MB vs ~2.5 GB for CUDA),
+# which is what we want on HuggingFace Spaces free tier.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Runtime environment
+# Force CPU — HuggingFace Spaces free tier has no GPU.
 ENV DEVICE=cpu
-ENV API_URL=http://localhost:8000
 
 COPY startup.sh .
 RUN chmod +x startup.sh
 
-# HuggingFace Spaces exposes exactly one port: 7860.
-# FastAPI runs on 8000 internally (localhost only).
-# Streamlit runs on 7860 and is the public-facing service.
+# HuggingFace Spaces exposes exactly one public port: 7860.
+# FastAPI serves both the API and the static UI on this port.
 EXPOSE 7860
 
 CMD ["./startup.sh"]

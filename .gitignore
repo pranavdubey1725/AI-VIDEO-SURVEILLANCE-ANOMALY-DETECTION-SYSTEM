@@ -27,8 +27,9 @@ data/splits/val.csv
 data/splits/test.csv
 # Keep dataset_index.csv (89 KB) — useful reference
 
-# Epoch checkpoints — only ship best_model.pt
+# Checkpoints — ship best_model.pt only
 checkpoints/epoch_*.pt
+checkpoints/best_model_aug.pt
 
 # Training logs
 checkpoints/training.log
@@ -57,6 +58,12 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+
+# Augmented splits CSV — regenerate with build_splits_augmented.py
+data/splits/train_aug.csv
+
+# Outputs — generated files (plots, eval results, logs)
+outputs/
 
 # Staging folder — not part of the project
 new files/

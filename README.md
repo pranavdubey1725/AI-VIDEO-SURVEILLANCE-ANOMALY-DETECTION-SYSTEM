@@ -1,3 +1,12 @@
+---
+title: AI Video Surveillance — Anomaly Detection
+emoji: 🎥
+colorFrom: gray
+colorTo: red
+sdk: docker
+pinned: false
+---
+
 # AI Video Surveillance — Anomaly Detection
 
 An end-to-end deep learning system that detects anomalous events in surveillance videos.

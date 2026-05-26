@@ -200,7 +200,7 @@ analyzeBtn.addEventListener("click", async () => {
 // ── Poll job ──────────────────────────────────────────────────────────────────
 function pollJob(jobId, threshold) {
     let step = 0;
-    const labels = ["Extracting frames…", "Running ResNet50…", "Scoring clips (LSTM)…", "Running YOLO + Grad-CAM…", "Finalizing…"];
+    const labels = ["Extracting frames…", "Running ResNet50 (CPU — this takes 2–5 min)…", "Scoring clips (LSTM)…", "Running YOLO + Grad-CAM…", "Finalizing…"];
 
     pollTimer = setInterval(async () => {
         try {

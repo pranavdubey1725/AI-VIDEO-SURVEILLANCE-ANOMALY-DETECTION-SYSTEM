@@ -1,20 +1,8 @@
----
-title: AI Video Surveillance — Anomaly Detection
-emoji: 🎥
-colorFrom: gray
-colorTo: red
-sdk: docker
-pinned: false
----
+# AI Video Surveillance: Anomaly Detection
 
-# AI Video Surveillance — Anomaly Detection
+An end-to-end deep learning system for detecting anomalous events in surveillance footage. Users upload a video and receive timestamped anomaly scores, object detections, and Grad-CAM heatmaps that highlight the regions responsible for each alert.
 
-An end-to-end deep learning system that detects anomalous events in surveillance videos.
-Upload a video and get back timestamped anomaly scores, object detections, and Grad-CAM
-heatmaps showing exactly which regions triggered each alert.
-
-Trained on the UCF-Crime benchmark. Test AUC-ROC: **0.8030** — beats the original
-Sultani et al. 2018 paper (0.7510) by approximately 5 percentage points.
+The model is trained on the UCF-Crime benchmark and achieves a **test AUC-ROC of 0.8030**, an improvement of roughly five percentage points over the original Sultani et al. (2018) baseline of 0.7510.
 
 ---
 
@@ -26,9 +14,9 @@ Sultani et al. 2018 paper (0.7510) by approximately 5 percentage points.
 | **Test AUC-ROC** | **0.8030** |
 | Accuracy at threshold 0.5 | 80% |
 | Anomaly recall | 69% |
-| Sultani et al. 2018 baseline | 0.7510 |
+| Sultani et al. (2018) baseline | 0.7510 |
 
-### Per-Category Test AUC (each category vs Normal)
+### Per-Category Test AUC (each category vs. Normal)
 
 | Category | AUC | Category | AUC |
 |---|---|---|---|
@@ -40,7 +28,7 @@ Sultani et al. 2018 paper (0.7510) by approximately 5 percentage points.
 | Explosion | 0.8257 | Road Accidents | 0.6481 |
 | Robbery | 0.8176 | Shooting | 0.6426 |
 
-ROC curve and score distribution plots are in `outputs/`.
+ROC curve and score distribution plots are available in `outputs/`.
 
 ---
 
@@ -77,18 +65,13 @@ Input Video (.mp4 / .avi / .mov / .mkv)
 
 ---
 
-## How Each Component Works
+## Component Overview
 
-### Feature Extractor — ResNet50 (frozen)
+### Feature Extractor — ResNet50 (Frozen)
 
-Each video frame is resized to 224x224 and passed through a pretrained ResNet50,
-producing a 2048-dimensional feature vector. The weights are frozen — no fine-tuning.
-This is the standard transfer-learning approach: ImageNet features capture texture,
-edges, and object shapes well enough to distinguish normal from anomalous activity
-without retraining on surveillance data.
+Each frame is resized to 224×224 and passed through a pretrained ResNet50 to produce a 2048-dimensional feature vector. The weights remain frozen throughout — no fine-tuning is performed. This follows the standard transfer-learning approach: ImageNet features capture texture, edges, and object shapes with enough fidelity to distinguish normal from anomalous activity without retraining on surveillance-specific data.
 
-Pre-computing features for the entire dataset takes about 2 hours on a GPU. At inference
-time features are computed on-the-fly per video.
+Pre-computing features for the full dataset takes approximately two hours on a GPU. At inference time, features are computed on the fly for each uploaded video.
 
 ### Temporal Model — AnomalyLSTM
 
@@ -98,74 +81,47 @@ LSTM:   2 layers, hidden size 256, dropout 0.5
 Output: [batch, 1]  — anomaly score in [0, 1]
 ```
 
-The 16-frame clip is a sliding window over the video (stride 8, so consecutive clips
-overlap by half). The LSTM reads the sequence of frame features and produces one score
-per clip. The final hidden state of the top LSTM layer is passed through a small
-fully-connected head (256 -> 64 -> 1) with sigmoid activation.
+Each 16-frame clip is drawn from a sliding window over the video (stride 8, so consecutive clips overlap by half). The LSTM processes the sequence of frame features and outputs a single score per clip. The final hidden state of the top LSTM layer passes through a compact fully connected head (256 → 64 → 1) with a sigmoid activation.
 
-Why LSTM and not a 3D CNN? LSTMs are simpler to train, require less memory, and are
-easier to explain in an interview. A 3D CNN would likely give higher recall on fast
-motion anomalies (fights, explosions) but would be harder to debug and slower to
-iterate on.
+**Why LSTM rather than a 3D CNN?** LSTMs are simpler to train, require less memory, and are easier to reason about and explain. A 3D CNN would likely deliver higher recall on fast-motion anomalies such as fights or explosions, but at the cost of a harder-to-debug model and slower iteration.
 
-### Loss Function — Ranking Loss (Sultani 2018)
+### Loss Function — Ranking Loss (Sultani et al., 2018)
 
-The UCF-Crime dataset only provides video-level labels: a video is either "anomalous"
-or "normal" — there are no frame-level annotations in the training set. This is called
-weak supervision.
+UCF-Crime provides only video-level labels — each video is marked "anomalous" or "normal," with no frame-level annotations in the training set. This constitutes weak supervision.
 
-The ranking loss exploits this: instead of predicting exact scores, it only requires
-that anomalous clips score higher than normal clips by a margin of 1.
+The ranking loss is designed for exactly this setting: rather than predicting exact scores, it only requires that anomalous clips score higher than normal clips by a fixed margin.
 
 ```
 loss = mean( max(0, 1 - score_anomalous + score_normal) )
 ```
 
-Every anomalous score in a batch is compared against every normal score. If the
-anomalous score already exceeds the normal score by at least 1, the loss is zero for
-that pair. This is the core idea from the paper that introduced UCF-Crime.
+Every anomalous score in a batch is compared against every normal score. If an anomalous score already exceeds a normal score by at least 1, that pair contributes zero loss. This is the central idea introduced in the paper that established the UCF-Crime dataset.
 
 ### Object Detector — YOLOv8n
 
-YOLOv8n runs only on the representative frame of clips that the LSTM flagged as
-anomalous. Running it on every frame would be redundant and slow — the LSTM already
-handles temporal anomaly detection. YOLO adds interpretability: it tells you what
-objects were visible in a flagged clip (persons, vehicles, weapons if labeled).
+YOLOv8n runs only on the representative frame of clips the LSTM has flagged as anomalous. Running it on every frame would be redundant, since the LSTM already handles temporal anomaly detection — YOLO's role is to add interpretability by identifying which objects (people, vehicles, and any labeled weapons) were visible in a flagged clip.
 
 ### Explainability — Grad-CAM
 
-Grad-CAM computes which spatial regions of the input frame the ResNet50 responded to
-most strongly. It does this by computing gradients of the L2 norm of the feature map
-(layer4 output) with respect to the feature map activations, then weighting the
-activation maps by those gradients and producing a heatmap.
+Grad-CAM identifies which spatial regions of an input frame the ResNet50 responded to most strongly. It computes gradients of the L2 norm of the feature map (the layer4 output) with respect to the feature map activations, then uses those gradients to weight the activation maps and produce a heatmap.
 
-Note: the standard Grad-CAM target is a class logit. Since our ResNet50 has no
-classification head (we stripped it to get the 2048-dim feature vector), we use the L2
-norm of the feature map as a proxy. This produces visually plausible heatmaps but is
-not as theoretically grounded as class-discriminative Grad-CAM.
+Note that the standard Grad-CAM target is a class logit. Since this ResNet50 has been stripped of its classification head to produce the 2048-dimensional feature vector, the L2 norm of the feature map is used as a proxy target instead. This yields visually plausible heatmaps, though it is less theoretically grounded than class-discriminative Grad-CAM.
 
-### API — FastAPI with async job queue
+### API — FastAPI with an Asynchronous Job Queue
 
-Video analysis takes 20–120 seconds depending on length. A synchronous HTTP endpoint
-would time out in browsers and proxies. Instead:
+Video analysis takes between 20 and 120 seconds depending on length — too long for a synchronous HTTP request, which risks timing out in browsers and proxies. The system instead uses a job-queue pattern:
 
-1. `POST /analyze` saves the video to a temp file, starts a background thread, and
-   immediately returns a `job_id`.
+1. `POST /analyze` saves the uploaded video to a temporary file, starts a background thread, and immediately returns a `job_id`.
 2. The client polls `GET /jobs/{id}` until `status == "done"`.
-3. `GET /jobs/{id}/results` returns the full JSON report.
-4. Frame and heatmap images are served as JPEG streams via dedicated endpoints.
-5. `DELETE /jobs/{id}` frees the in-memory frames.
+3. `GET /jobs/{id}/results` returns the full results as JSON.
+4. Frame and heatmap images are served as JPEG streams through dedicated endpoints.
+5. `DELETE /jobs/{id}` releases the in-memory frame data once a job is no longer needed.
 
-Jobs are stored in a plain Python dict (in-memory). If the server restarts, all jobs
-are lost. This is acceptable for a local development system; a production deployment
-would use Redis or a database.
+Jobs are held in a plain Python dictionary in memory, so a server restart clears all job state. This is acceptable for local development; a production deployment would use Redis or a database instead.
 
 ### Frontend — Vanilla HTML/CSS/JS
 
-The frontend is a single-page application served as static files by FastAPI itself
-(via `StaticFiles` mount). It communicates with the backend only through the REST API
-— it never touches ML models directly. This decoupling means the API can serve any
-client (mobile, CLI, another service) without changing the ML code.
+The frontend is a single-page application served as static files directly by FastAPI (via `StaticFiles`). It communicates with the backend exclusively through the REST API and never touches the ML models directly. This decoupling means the API can serve any client — mobile, CLI, or another service — without any changes to the ML code.
 
 ---
 
@@ -173,12 +129,11 @@ client (mobile, CLI, another service) without changing the ML code.
 
 **UCF-Crime** (`odins0n/ucf-crime-dataset` on Kaggle)
 
-- 1,900 surveillance videos, 128 hours total
-- 13 anomaly categories: Abuse, Arrest, Arson, Assault, Burglary, Explosion, Fighting,
-  Road Accidents, Robbery, Shooting, Shoplifting, Stealing, Vandalism
+- 1,900 surveillance videos totaling 128 hours
+- 13 anomaly categories: Abuse, Arrest, Arson, Assault, Burglary, Explosion, Fighting, Road Accidents, Robbery, Shooting, Shoplifting, Stealing, Vandalism
 - Plus a Normal class
 - Training labels are video-level only (no frame annotations)
-- Test set has frame-level binary labels, used only for evaluation
+- The test set includes frame-level binary labels, used solely for evaluation
 
 | Split | Videos | Clips | Normal fraction |
 |---|---|---|---|
@@ -186,35 +141,31 @@ client (mobile, CLI, another service) without changing the ML code.
 | Validation | 322 | 21,174 | 68.8% |
 | Test | 290 | 13,494 | 58.5% |
 
-Splits are video-level (not clip-level). Splitting at the clip level would cause data
-leakage: clips from the same video would appear in both train and validation, inflating
-validation AUC by several points.
+Splits are constructed at the video level rather than the clip level. Clip-level splitting would allow clips from the same video to appear in both training and validation sets, causing data leakage and inflating validation AUC.
 
 ---
 
-## Training Details
+## Training Configuration
 
 | Setting | Value |
 |---|---|
-| Optimizer | Adam, lr=1e-4 |
+| Optimizer | Adam, lr = 1e-4 |
 | LR schedule | ReduceLROnPlateau (mode=max, patience=5, factor=0.5) |
-| Gradient clipping | max_norm=1.0 |
+| Gradient clipping | max_norm = 1.0 |
 | Epochs | 50 (best checkpoint saved at epoch 29) |
 | Batch size | 32 |
-| Class imbalance | WeightedRandomSampler (76% of clips are Normal) |
-| Training time | ~90 minutes on RTX 4060 Laptop (8GB VRAM) |
+| Class imbalance handling | WeightedRandomSampler (76% of clips are Normal) |
+| Training time | ~90 minutes on RTX 4060 Laptop (8 GB VRAM) |
 
-LR schedule progression:
+**Learning rate schedule progression:**
 
 | Learning rate | Best validation AUC |
 |---|---|
 | 1e-4 | 0.8646 |
 | 2.5e-5 | 0.8862 |
-| 1.25e-5 | **0.8881** (saved as best_model.pt) |
+| 1.25e-5 | **0.8881** (saved as `best_model.pt`) |
 
-The scheduler is set to `mode="max"` to monitor AUC rather than loss. Validation loss
-collapses to 0.0 after epoch 2 (a known artifact of the ranking loss with class
-imbalance), so monitoring it would stop the LR from decaying at all.
+The scheduler operates in `mode="max"` to monitor AUC rather than loss. Validation loss collapses to 0.0 after epoch 2 — a known artifact of the ranking loss under class imbalance — so monitoring loss instead would prevent the learning rate from ever decaying.
 
 ---
 
@@ -280,9 +231,9 @@ surveillance-system/
 ### Prerequisites
 
 - Python 3.9+
-- NVIDIA GPU with CUDA 12.4 recommended (CPU works but inference is slow)
+- An NVIDIA GPU with CUDA 12.4 is recommended (CPU is supported, but inference is slower)
 
-### 1. Clone and install
+### 1. Clone and Install
 
 ```bash
 git clone https://github.com/pranavdubey1725/AI-VIDEO-SURVEILLANCE-ANOMALY-DETECTION-SYSTEM.git
@@ -302,7 +253,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install -r requirements.txt
 ```
 
-For CPU-only (no GPU), install the default PyTorch:
+For CPU-only environments, install the default PyTorch build instead:
 
 ```bash
 pip install torch torchvision torchaudio
@@ -310,58 +261,51 @@ pip install torch torchvision torchaudio
 
 Then open `config.py` and change `DEVICE = "cuda"` to `DEVICE = "cpu"`.
 
-### 2. Start the server
+### 2. Start the Server
 
 ```bash
 python run.py
 ```
 
-This launches FastAPI on port 8000. FastAPI serves both the REST API and the
-web UI from the same process. Open `http://localhost:8000` in your browser.
-The `best_model.pt` checkpoint is included — no retraining required.
+This launches FastAPI on port 8000, serving both the REST API and the web UI from a single process. Open `http://localhost:8000` in your browser. The included `best_model.pt` checkpoint means no retraining is required to get started.
 
-### 3. Analyze a video
+### 3. Analyze a Video
 
-- Upload any `.mp4`, `.avi`, `.mov`, or `.mkv` file
-- Adjust the anomaly threshold slider (default 0.5)
+- Upload a `.mp4`, `.avi`, `.mov`, or `.mkv` file
+- Adjust the anomaly threshold slider (default: 0.5)
 - Click **Analyze Video**
-- View the anomaly score timeline, flagged clips, Grad-CAM heatmaps, and YOLO detections
+- Review the anomaly score timeline, flagged clips, Grad-CAM heatmaps, and YOLO detections
 
 ---
 
 ## Running with Docker
 
-Docker runs the API and UI as two separate containers on a shared network. The UI
-container reaches the API via the Docker service name (`http://api:8000`) rather than
-localhost. This is handled automatically through an environment variable — no code
-changes are needed for local development.
+Docker runs the API and UI as two separate containers on a shared network. The UI container reaches the API through the Docker service name (`http://api:8000`) rather than `localhost`; this is handled automatically via an environment variable, so no code changes are required for local development.
 
 ### Prerequisites
 
 - Docker and Docker Compose (V2)
-- For GPU acceleration: [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+- For GPU acceleration: the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 
-### Build and start
+### Build and Start
 
 ```bash
 docker compose up --build
 ```
 
-First build takes several minutes because PyTorch (~2.5 GB) is downloaded and installed
-inside the image. Subsequent starts reuse the cached layer.
+The first build takes several minutes, since PyTorch (~2.5 GB) is downloaded and installed inside the image. Subsequent builds reuse the cached layer.
 
 Open `http://localhost:8000` in your browser.
 
-### CPU-only (no GPU)
+### CPU-Only (No GPU)
 
-No GPU? Use the ready-made CPU variant — no edits required:
+A ready-made CPU variant is available and requires no edits:
 
 ```bash
 docker compose -f docker-compose.cpu.yml up --build
 ```
 
-CPU inference works but is significantly slower (8–12 minutes per 60-second video vs
-under 30 seconds with a GPU).
+CPU inference works but is significantly slower — roughly 8–12 minutes per 60-second video, compared to under 30 seconds on a GPU.
 
 ### Stop
 
@@ -369,38 +313,34 @@ under 30 seconds with a GPU).
 docker compose down
 ```
 
-### Image size note
+### A Note on Image Size
 
-The Docker image is large (~6–8 GB) because of the PyTorch CUDA wheels. This is
-expected for GPU-enabled deep learning containers. The `.dockerignore` file ensures the
-11.8 GB dataset, pre-computed features, and intermediate checkpoints are never copied
-into the image.
+The Docker image is large (approximately 6–8 GB) due to the PyTorch CUDA wheels, which is typical for GPU-enabled deep learning containers. The `.dockerignore` file ensures the 11.8 GB dataset, pre-computed features, and intermediate checkpoints are never copied into the image.
 
 ---
 
 ## API Reference
 
-Interactive docs are available at `http://localhost:8000/docs` while the server is
-running.
+Interactive documentation is available at `http://localhost:8000/docs` while the server is running.
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/health` | Liveness check and model metadata |
-| POST | `/analyze` | Upload video, start background analysis job |
+| POST | `/analyze` | Upload a video and start a background analysis job |
 | GET | `/jobs/{id}` | Poll job status: queued / processing / done / failed |
-| GET | `/jobs/{id}/results` | Full results JSON (only when status is done) |
+| GET | `/jobs/{id}/results` | Full results as JSON (available once status is done) |
 | GET | `/jobs/{id}/clips/{idx}/frame` | Representative frame as JPEG |
 | GET | `/jobs/{id}/clips/{idx}/heatmap` | Grad-CAM overlay as JPEG |
 | DELETE | `/jobs/{id}` | Free memory for a completed job |
 
-### Error codes
+### Error Codes
 
 | Status | Meaning |
 |---|---|
 | 400 | Bad input — invalid threshold, unsupported file type, or empty file |
 | 413 | File too large (above 500 MB) |
 | 422 | Missing required field |
-| 503 | Pipeline not loaded yet — retry in a few seconds |
+| 503 | Pipeline not yet loaded — retry after a few seconds |
 
 ---
 
@@ -412,24 +352,22 @@ cd surveillance-system
 pytest tests/test_api.py -v
 ```
 
-14 automated tests covering:
+The suite includes 14 automated tests covering:
 
-- Health endpoint returns correct model metadata
+- Correct model metadata returned by the health endpoint
 - 404 responses for unknown job IDs (status, results, frame, heatmap, delete)
 - Input validation: missing file, wrong extension, empty file, threshold out of range
-- Too-short video (under 16 frames) fails gracefully with a readable error message
-- Full job lifecycle: submit, poll, fetch results, fetch frame image, delete, confirm gone
+- Graceful failure with a readable error message for videos shorter than 16 frames
+- The full job lifecycle: submit, poll, fetch results, fetch frame image, delete, confirm removal
 
-The tests generate a synthetic 10-frame video using OpenCV rather than requiring a real
-surveillance video. The full lifecycle test (`test_full_job_lifecycle`) is skipped unless
-a file at `data/test_video.mp4` is present.
+Tests generate a synthetic 10-frame video with OpenCV rather than requiring a real surveillance clip. The full lifecycle test (`test_full_job_lifecycle`) is skipped unless a file is present at `data/test_video.mp4`.
 
 ---
 
 ## Retraining from Scratch
 
 ```bash
-# 1. Download dataset (requires Kaggle API credentials)
+# 1. Download the dataset (requires Kaggle API credentials)
 kaggle datasets download -d odins0n/ucf-crime-dataset -p data/raw --unzip
 
 # 2. Build clip CSVs (video-level splits)
@@ -450,56 +388,38 @@ python src/training/evaluate.py
 
 ## Key Design Decisions
 
-| Decision | Choice | Reason |
+| Decision | Choice | Rationale |
 |---|---|---|
-| Feature extractor | ResNet50 frozen | 500x faster than on-the-fly CNN training; ImageNet features transfer well |
-| Temporal model | LSTM, 2 layers, hidden 256 | Simpler than 3D CNN; fewer parameters; interpretable hidden state |
-| Loss function | Ranking loss (Sultani 2018) | Only video-level labels available; ranking loss works without frame annotations |
-| Class imbalance | WeightedRandomSampler | Without balancing, 76% normal clips cause the model to predict "normal" always |
-| Primary metric | AUC-ROC, not accuracy | At 76% normal, always predicting normal gives 76% accuracy — AUC is informative |
-| Split strategy | Video-level splits | Clip-level splits cause data leakage when clips from the same video appear in train and val |
-| Checkpoint criterion | Best validation AUC | Validation loss collapses to 0 after epoch 2; AUC remains meaningful throughout |
-| LR scheduler mode | mode="max" | Scheduler monitors AUC improvement, not validation loss |
-| YOLO placement | Only on flagged clips | Running YOLO on every frame is slow and redundant when LSTM already flags anomalies |
-| Grad-CAM target | L2 norm of feature map | No classification logit available; norm captures which spatial regions activate most |
-| API pattern | Async job queue | Analysis takes 20–120 seconds; synchronous endpoints would time out |
-| Frontend coupling | Vanilla JS calls API only | Keeps UI completely decoupled from ML; any client can use the API |
+| Feature extractor | Frozen ResNet50 | ~500x faster than training a CNN from scratch; ImageNet features transfer well |
+| Temporal model | LSTM, 2 layers, hidden size 256 | Simpler than a 3D CNN; fewer parameters; interpretable hidden state |
+| Loss function | Ranking loss (Sultani et al., 2018) | Only video-level labels are available; ranking loss works without frame annotations |
+| Class imbalance | WeightedRandomSampler | Without balancing, 76% normal clips push the model toward always predicting "normal" |
+| Primary metric | AUC-ROC, not accuracy | At 76% normal, always predicting "normal" yields 76% accuracy — AUC is more informative |
+| Split strategy | Video-level splits | Clip-level splits cause data leakage when clips from the same video appear in both train and val |
+| Checkpoint criterion | Best validation AUC | Validation loss collapses to 0 after epoch 2; AUC remains meaningful throughout training |
+| LR scheduler mode | `mode="max"` | Scheduler tracks AUC improvement rather than validation loss |
+| YOLO placement | Flagged clips only | Running YOLO on every frame is slow and redundant once the LSTM has flagged anomalies |
+| Grad-CAM target | L2 norm of the feature map | No classification logit is available; the norm captures the most active spatial regions |
+| API pattern | Asynchronous job queue | Analysis takes 20–120 seconds; a synchronous endpoint would risk timing out |
+| Frontend coupling | Vanilla JS, API-only | Keeps the UI fully decoupled from the ML code; any client can consume the API |
 
 ---
 
-## Shortcomings and Limitations
+## Limitations
 
-**Recall on fast-motion anomalies is low.** Categories like Fighting (0.6576), Shooting
-(0.6426), and Road Accidents (0.6481) have AUC scores close to random. These events
-involve rapid motion across a small number of frames. A 16-frame LSTM clip at 30 fps
-covers only 0.5 seconds, which is often not enough context. A 3D CNN or transformer
-with longer temporal context would likely perform better here.
+**Recall on fast-motion anomalies is limited.** Categories such as Fighting (0.6576), Shooting (0.6426), and Road Accidents (0.6481) score close to random chance. These events unfold over rapid motion across a small number of frames — a 16-frame LSTM clip at 30 fps spans only 0.5 seconds, often too little context to capture the event. A 3D CNN or transformer with a longer temporal window would likely perform better here.
 
-**No frame-level labels during training.** The ranking loss works with video-level labels
-but it does not learn exactly which frames are anomalous. At inference time the model
-scores clips (16-frame windows), not individual frames. The reported timestamps are the
-start time of the highest-scoring clip, not the precise moment the anomaly begins.
+**No frame-level labels during training.** The ranking loss works with video-level labels alone, but as a result the model does not learn precisely which frames are anomalous. At inference time it scores 16-frame clips rather than individual frames, and the reported timestamp corresponds to the start of the highest-scoring clip rather than the exact onset of the anomaly.
 
-**In-memory job store.** Completed jobs (including all decoded video frames) are held in
-a Python dict until explicitly deleted. For long videos this can use several GB of RAM.
-A production system would stream frames to disk or object storage and evict old jobs
-automatically.
+**In-memory job store.** Completed jobs — including all decoded video frames — remain in a Python dictionary until explicitly deleted. For long videos this can consume several gigabytes of RAM. A production system would stream frames to disk or object storage and evict stale jobs automatically.
 
-**Single-GPU training assumption.** The training script and feature extraction script
-assume one GPU. Multi-GPU training is not implemented.
+**Single-GPU training assumption.** Both the training script and the feature extraction script assume a single GPU; multi-GPU training is not implemented.
 
-**Val-test gap.** Validation AUC (0.8881) is higher than test AUC (0.8030). The gap
-suggests some overfitting to the validation set through the LR schedule (the scheduler
-reduces LR when validation AUC stops improving, which implicitly fits to validation
-signal). A held-out test set that was never used during training decisions would give a
-cleaner estimate.
+**Validation–test gap.** Validation AUC (0.8881) exceeds test AUC (0.8030), suggesting some overfitting to the validation set introduced through the LR schedule — the scheduler reduces the learning rate when validation AUC plateaus, which implicitly fits to the validation signal. A held-out test set entirely excluded from training decisions would provide a cleaner estimate of generalization.
 
-**YOLO labels are generic.** YOLOv8n is an 80-class COCO detector. It can detect
-"person" and "car" but has no crime-specific categories. Detections provide basic
-scene context but are not crime-aware.
+**YOLO labels are generic.** YOLOv8n is an 80-class COCO detector — it can identify "person" or "car," but has no crime-specific categories. Detections provide useful scene context but are not crime-aware.
 
-**CPU inference is slow.** Processing a 60-second video takes roughly 8–12 minutes on
-CPU only. A GPU reduces this to under 30 seconds.
+**CPU inference is slow.** Processing a 60-second video takes roughly 8–12 minutes on CPU alone; a GPU reduces this to under 30 seconds.
 
 ---
 
@@ -516,9 +436,6 @@ CPU only. A GPU reduces this to under 30 seconds.
 
 ## References
 
-- Sultani, W., Chen, C., & Shah, M. (2018). **Real-world anomaly detection in surveillance
-  videos**. CVPR 2018. Introduced the UCF-Crime dataset and the ranking loss for weak
-  supervision.
-- Selvaraju, R. R., et al. (2017). **Grad-CAM: Visual explanations from deep networks via
-  gradient-based localization**. ICCV 2017.
-- He, K., et al. (2016). **Deep residual learning for image recognition**. CVPR 2016.
+- Sultani, W., Chen, C., & Shah, M. (2018). *Real-World Anomaly Detection in Surveillance Videos.* CVPR 2018. Introduced the UCF-Crime dataset and the ranking loss for weak supervision.
+- Selvaraju, R. R., et al. (2017). *Grad-CAM: Visual Explanations from Deep Networks via Gradient-Based Localization.* ICCV 2017.
+- He, K., et al. (2016). *Deep Residual Learning for Image Recognition.* CVPR 2016.
